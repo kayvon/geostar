@@ -1,0 +1,14 @@
+name = "geostar-dashboard"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "geostar"
+database_id = "2734fb86-f379-48cf-b226-68e8e07dc5b9"  # Replace with real ID after running: wrangler d1 create geostar
+
+[triggers]
+crons = ["0 9 * * *"]  # 9am UTC = 1am PT
+
+[vars]
+TIMEZONE = "America/Los_Angeles"
