@@ -1,17 +1,21 @@
 {
-  "name": "geostar-dashboard",
+  "name": "geostar-injest",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --persist-to ../.wrangler",
     "deploy": "wrangler deploy",
     "db:create": "wrangler d1 create geostar",
-    "db:migrate": "wrangler d1 execute geostar --file=schema.sql",
-    "db:migrate:local": "wrangler d1 execute geostar --local --file=schema.sql"
+    "db:migrate": "wrangler d1 execute DB --remote --file=schema.sql",
+    "db:migrate:local": "wrangler d1 execute DB --local --persist-to ../.wrangler --file=schema.sql",
+    "db:query": "wrangler d1 execute DB --local --persist-to ../.wrangler"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241218.0",
     "typescript": "^5.3.3",
-    "wrangler": "^3.99.0"
+    "wrangler": "^4.60.0"
+  },
+  "dependencies": {
+    "@rollup/plugin-inject": "^5.0.5"
   }
 }
