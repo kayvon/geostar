@@ -79,6 +79,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
 async function handleApiRoute(path: string, params: URLSearchParams, env: Env): Promise<Response> {
   const { DB } = env;
+  const timezone = env.TIMEZONE || 'America/Los_Angeles';
 
   // GET /api/energy/daily?start=YYYY-MM-DD&end=YYYY-MM-DD
   if (path === '/api/energy/daily') {
@@ -90,7 +91,7 @@ async function handleApiRoute(path: string, params: URLSearchParams, env: Env): 
     }
 
     try {
-      const data = await getDailyTotals(DB, start, end);
+      const data = await getDailyTotals(DB, start, end, timezone);
       return jsonResponse({ data });
     } catch (error) {
       return errorResponse(error instanceof Error ? error.message : 'Database error');
@@ -106,7 +107,7 @@ async function handleApiRoute(path: string, params: URLSearchParams, env: Env): 
     }
 
     try {
-      const data = await getHourlyTotals(DB, date);
+      const data = await getHourlyTotals(DB, date, timezone);
       return jsonResponse({ data });
     } catch (error) {
       return errorResponse(error instanceof Error ? error.message : 'Database error');
@@ -124,7 +125,7 @@ async function handleApiRoute(path: string, params: URLSearchParams, env: Env): 
     }
 
     try {
-      const data = await getRawReadings(DB, start, end, gateway);
+      const data = await getRawReadings(DB, start, end, gateway, timezone);
       return jsonResponse({ data, count: data.length });
     } catch (error) {
       return errorResponse(error instanceof Error ? error.message : 'Database error');

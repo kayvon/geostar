@@ -7,6 +7,26 @@ export interface StoredEnergyReading extends EnergyReading {
 }
 
 /**
+ * Get the UTC offset in milliseconds for a given timezone on a given date.
+ * Handles DST automatically via the Intl API.
+ * E.g., America/Los_Angeles in winter returns -28800000 (UTC-8)
+ */
+function getTimezoneOffsetMs(timezone: string, dateStr: string): number {
+  const date = new Date(`${dateStr}T12:00:00Z`);
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    timeZoneName: 'longOffset',
+  });
+  const formatted = formatter.format(date);
+  const match = formatted.match(/GMT([+-])(\d{2}):(\d{2})/);
+  if (!match) return 0;
+  const sign = match[1] === '+' ? 1 : -1;
+  const hours = parseInt(match[2]);
+  const minutes = parseInt(match[3]);
+  return sign * (hours * 3600000 + minutes * 60000);
+}
+
+/**
  * Insert energy readings into the database
  * Uses INSERT OR IGNORE to skip duplicates (based on UNIQUE constraint)
  */
@@ -75,15 +95,15 @@ export async function getDailyTotals(
   endDate: string,    // YYYY-MM-DD
   timezone: string = 'America/Los_Angeles'
 ): Promise<DailyTotal[]> {
-  // Convert dates to timestamps (midnight in the specified timezone)
-  // For simplicity, we'll use UTC and adjust on the client side
-  const startTs = new Date(`${startDate}T00:00:00`).getTime();
-  const endTs = new Date(`${endDate}T23:59:59`).getTime();
+  // Convert date boundaries to UTC timestamps adjusted for the target timezone
+  const offsetMs = getTimezoneOffsetMs(timezone, startDate);
+  const startTs = new Date(`${startDate}T00:00:00Z`).getTime() - offsetMs;
+  const endTs = new Date(`${endDate}T23:59:59Z`).getTime() - offsetMs;
 
   const results = await db
     .prepare(`
       SELECT
-        date(timestamp/1000, 'unixepoch', 'localtime') as date,
+        date((timestamp + ?) /1000, 'unixepoch') as date,
         gateway_id,
         SUM(total_heat_1) as total_heat_1,
         SUM(total_heat_2) as total_heat_2,
@@ -104,7 +124,7 @@ export async function getDailyTotals(
       GROUP BY date, gateway_id
       ORDER BY date DESC, gateway_id
     `)
-    .bind(startTs, endTs)
+    .bind(offsetMs, startTs, endTs)
     .all<DailyTotalRow>();
 
   return (results.results || []).map(row => ({
@@ -170,15 +190,17 @@ interface DailyTotalRow {
  */
 export async function getHourlyTotals(
   db: D1Database,
-  date: string  // YYYY-MM-DD
+  date: string,  // YYYY-MM-DD
+  timezone: string = 'America/Los_Angeles'
 ): Promise<HourlyTotal[]> {
-  const startTs = new Date(`${date}T00:00:00`).getTime();
-  const endTs = new Date(`${date}T23:59:59`).getTime();
+  const offsetMs = getTimezoneOffsetMs(timezone, date);
+  const startTs = new Date(`${date}T00:00:00Z`).getTime() - offsetMs;
+  const endTs = new Date(`${date}T23:59:59Z`).getTime() - offsetMs;
 
   const results = await db
     .prepare(`
       SELECT
-        strftime('%H', timestamp/1000, 'unixepoch', 'localtime') as hour,
+        strftime('%H', (timestamp + ?) /1000, 'unixepoch') as hour,
         gateway_id,
         SUM(total_heat_1) as total_heat_1,
         SUM(total_heat_2) as total_heat_2,
@@ -192,7 +214,7 @@ export async function getHourlyTotals(
       GROUP BY hour, gateway_id
       ORDER BY hour, gateway_id
     `)
-    .bind(startTs, endTs)
+    .bind(offsetMs, startTs, endTs)
     .all<HourlyTotalRow>();
 
   return (results.results || []).map(row => ({
@@ -239,10 +261,12 @@ export async function getRawReadings(
   db: D1Database,
   startDate: string,
   endDate: string,
-  gatewayId?: string
+  gatewayId?: string,
+  timezone: string = 'America/Los_Angeles'
 ): Promise<StoredEnergyReading[]> {
-  const startTs = new Date(`${startDate}T00:00:00`).getTime();
-  const endTs = new Date(`${endDate}T23:59:59`).getTime();
+  const offsetMs = getTimezoneOffsetMs(timezone, startDate);
+  const startTs = new Date(`${startDate}T00:00:00Z`).getTime() - offsetMs;
+  const endTs = new Date(`${endDate}T23:59:59Z`).getTime() - offsetMs;
 
   let query = `
     SELECT * FROM energy_readings
