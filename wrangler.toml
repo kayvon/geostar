@@ -1,11 +1,12 @@
-name = "geostar-dashboard"
+name = "geostar-data-injest"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
+account_id = "ebb822c9645a8923b6fe123f2c2fb402"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "geostar"
-database_id = "2734fb86-f379-48cf-b226-68e8e07dc5b9"  # Replace with real ID after running: wrangler d1 create geostar
+database_id = "2734fb86-f379-48cf-b226-68e8e07dc5b9"
 
 [triggers]
 crons = ["0 9 * * *"]  # 9am UTC = 1am PT
