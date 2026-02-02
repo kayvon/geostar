@@ -9,7 +9,7 @@ database_name = "geostar"
 database_id = "2734fb86-f379-48cf-b226-68e8e07dc5b9"
 
 [triggers]
-crons = ["0 9 * * *"]  # 9am UTC = 1am PT
+crons = ["*/15 * * * *"]  # every 15 minutes
 
 [vars]
-TIMEZONE = "America/Los_Angeles"
+TIMEZONE = "America/New_York"

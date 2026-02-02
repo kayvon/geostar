@@ -23,13 +23,9 @@ export interface GatewayResult {
  */
 function getYesterdayDateRange(timezone: string): { start: string; end: string } {
   const now = new Date();
-  // Adjust for timezone (rough approximation - PT is UTC-8)
-  const utcOffset = timezone === 'America/Los_Angeles' ? -8 : 0;
-  const local = new Date(now.getTime() + utcOffset * 60 * 60 * 1000);
-
-  const today = local.toISOString().split('T')[0];
-  local.setDate(local.getDate() - 1);
-  const yesterday = local.toISOString().split('T')[0];
+  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone });
+  const today = formatter.format(now);
+  const yesterday = formatter.format(new Date(now.getTime() - 24 * 60 * 60 * 1000));
 
   return { start: yesterday, end: today };
 }
