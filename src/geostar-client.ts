@@ -55,23 +55,29 @@ function buildCookies(session: Session): string {
 export async function getGateways(session: Session): Promise<Gateway[]> {
   console.log(`[geostar] Fetching gateways for user ${session.userKey}`);
 
+  const url = `${BASE_URL}/api.php/awl/json/location/getlocationdata.php`;
+  const options =     {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      'Cookie': buildCookies(session),
+    },
+    body: `awluserkey=${session.userKey}`,
+  };
+
+  console.log('[geostar] Location API request', url, options);
+
   const response = await fetch(
-    `${BASE_URL}/api.php/awl/json/location/getlocationdata.php`,
-    {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-        'Cookie': buildCookies(session),
-      },
-      body: `awluserkey=${session.userKey}`,
-    }
+    url,
+    options,
   );
 
   console.log(`[geostar] Location API response status: ${response.status}`);
 
+  const text = await response.text();
+
   if (!response.ok) {
-    const text = await response.text();
     console.log(`[geostar] Location API error: ${text.substring(0, 500)}`);
     if (response.status === 401 || response.status === 403) {
       throw new AuthError('Session expired');
@@ -79,7 +85,6 @@ export async function getGateways(session: Session): Promise<Gateway[]> {
     throw new Error(`Failed to get location data: ${response.status}`);
   }
 
-  const text = await response.text();
   console.log(`[geostar] Location API response: ${text.substring(0, 1000)}`);
 
   let data: Record<string, unknown>;
@@ -87,6 +92,12 @@ export async function getGateways(session: Session): Promise<Gateway[]> {
     data = JSON.parse(text);
   } catch (e) {
     throw new Error(`Failed to parse location data as JSON: ${text.substring(0, 200)}`);
+  }
+
+  // GeoStar API returns 200 even on errors — check the err field in the JSON
+  if (data.err && data.err !== '') {
+    console.log(`[geostar] Location API error: ${data.err}`);
+    throw new Error(`GeoStar API error: ${data.err}`);
   }
 
   console.log(`[geostar] Location data keys: ${Object.keys(data).join(', ')}`);
