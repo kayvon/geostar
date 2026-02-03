@@ -8,6 +8,21 @@ binding = "DB"
 database_name = "geostar"
 database_id = "2734fb86-f379-48cf-b226-68e8e07dc5b9"
 
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
 [triggers]
 crons = ["*/15 * * * *"]  # every 15 minutes
 
