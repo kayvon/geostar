@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev --persist-to ../.wrangler",
+    "dev": "wrangler dev --local --persist-to ../.wrangler",
     "deploy": "wrangler deploy",
     "db:create": "wrangler d1 create geostar",
     "db:migrate": "wrangler d1 execute DB --remote --file=schema.sql",

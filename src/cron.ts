@@ -147,11 +147,25 @@ export async function backfillData(
   try {
     // Get a valid session
     const authResult = await getValidSession(db, email, password);
-    const session = authResult.session;
+    let session = authResult.session;
     result.loginRefreshed = authResult.fresh;
 
     // Get all gateways
-    const gateways = await getGateways(session);
+    let gateways;
+    try {
+      gateways = await getGateways(session);
+    } catch (error) {
+      // If auth error, try re-login once
+      if (error instanceof AuthError) {
+        console.log('[backfill] Session invalid, re-logging in...');
+        session = await login(email, password);
+        await storeSession(db, session);
+        result.loginRefreshed = true;
+        gateways = await getGateways(session);
+      } else {
+        throw error;
+      }
+    }
 
     if (gateways.length === 0) {
       result.error = 'No gateways found';

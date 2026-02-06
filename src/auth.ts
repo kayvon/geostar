@@ -153,7 +153,9 @@ function isSessionExpired(session: Session): boolean {
 }
 
 /**
- * Validate session by making a test API call
+ * Validate session by making a test API call.
+ * GeoStar returns 200 even for expired sessions, so we must check
+ * the response body for actual user data, not just HTTP status.
  */
 export async function validateSession(session: Session): Promise<boolean> {
   try {
@@ -163,7 +165,31 @@ export async function validateSession(session: Session): Promise<boolean> {
         'Cookie': `sessionid=${session.sessionId}; Symphony=${session.sessionId}; auk=${session.userKey}`,
       },
     });
-    return response.ok;
+    if (!response.ok) return false;
+
+    const text = await response.text();
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.log(`[auth] Validation failed: response not JSON`);
+      return false;
+    }
+
+    // Check for error indicators in the response body
+    if (data.err && data.err !== '') {
+      console.log(`[auth] Validation failed: API returned err: ${data.err}`);
+      return false;
+    }
+
+    // Verify we actually got user data back
+    const hasUserKey = !!(data.awlUserKey || data.awluserkey || data.auk || data.id || data.user_id || data.userId);
+    if (!hasUserKey) {
+      console.log(`[auth] Validation failed: no user key in response. Keys: ${Object.keys(data).join(', ')}`);
+      return false;
+    }
+
+    return true;
   } catch {
     return false;
   }

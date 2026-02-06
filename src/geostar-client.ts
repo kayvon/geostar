@@ -96,8 +96,13 @@ export async function getGateways(session: Session): Promise<Gateway[]> {
 
   // GeoStar API returns 200 even on errors — check the err field in the JSON
   if (data.err && data.err !== '') {
-    console.log(`[geostar] Location API error: ${data.err}`);
-    throw new Error(`GeoStar API error: ${data.err}`);
+    const errMsg = String(data.err);
+    console.log(`[geostar] Location API error: ${errMsg}`);
+    // Auth-related errors come back as 200 with err field, not as 401/403
+    if (/login|session|auth|unauthorized|expired/i.test(errMsg)) {
+      throw new AuthError(errMsg);
+    }
+    throw new Error(`GeoStar API error: ${errMsg}`);
   }
 
   console.log(`[geostar] Location data keys: ${Object.keys(data).join(', ')}`);
