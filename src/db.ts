@@ -11,7 +11,7 @@ export interface StoredEnergyReading extends EnergyReading {
  * Handles DST automatically via the Intl API.
  * E.g., America/Los_Angeles in winter returns -28800000 (UTC-8)
  */
-function getTimezoneOffsetMs(timezone: string, dateStr: string): number {
+export function getTimezoneOffsetMs(timezone: string, dateStr: string): number {
   const date = new Date(`${dateStr}T12:00:00Z`);
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone: timezone,
@@ -33,14 +33,16 @@ function getTimezoneOffsetMs(timezone: string, dateStr: string): number {
 export async function insertEnergyReadings(
   db: D1Database,
   gatewayId: string,
-  readings: EnergyReading[]
+  readings: EnergyReading[],
+  override: boolean = false
 ): Promise<{ inserted: number; skipped: number }> {
   if (readings.length === 0) {
     return { inserted: 0, skipped: 0 };
   }
 
+  const verb = override ? 'INSERT OR REPLACE' : 'INSERT OR IGNORE';
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO energy_readings (
+    ${verb} INTO energy_readings (
       gateway_id, timestamp,
       total_heat_1, total_heat_2, total_cool_1, total_cool_2,
       total_electric_heat, total_fan_only, total_loop_pump, total_dehumidification,

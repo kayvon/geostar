@@ -1,7 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { getValidSession, login, storeSession } from './auth';
 import { getGateways, getEnergyData, AuthError } from './geostar-client';
-import { insertEnergyReadings } from './db';
+import { insertEnergyReadings, getTimezoneOffsetMs } from './db';
 
 export interface CronResult {
   success: boolean;
@@ -107,10 +107,22 @@ export async function runDailyFetch(
         console.log(`Got ${readings.length} readings for gateway ${gateway.gwid}`);
 
         if (readings.length > 0) {
-          const insertResult = await insertEnergyReadings(db, gateway.gwid, readings);
-          gwResult.inserted = insertResult.inserted;
-          gwResult.skipped = insertResult.skipped;
-          console.log(`Inserted ${insertResult.inserted}, skipped ${insertResult.skipped} for gateway ${gateway.gwid}`);
+          // Split readings at midnight-today: yesterday's are final (ignore dupes),
+          // today's may be incomplete and should overwrite stale values
+          const offsetMs = getTimezoneOffsetMs(timezone, end);
+          const midnightToday = new Date(`${end}T00:00:00Z`).getTime() - offsetMs;
+
+          const yesterdayReadings = readings.filter(r => r.timestamp < midnightToday);
+          const todayReadings = readings.filter(r => r.timestamp >= midnightToday);
+
+          console.log(`Gateway ${gateway.gwid}: ${yesterdayReadings.length} yesterday, ${todayReadings.length} today`);
+
+          const yesterdayResult = await insertEnergyReadings(db, gateway.gwid, yesterdayReadings, false);
+          const todayResult = await insertEnergyReadings(db, gateway.gwid, todayReadings, true);
+
+          gwResult.inserted = yesterdayResult.inserted + todayResult.inserted;
+          gwResult.skipped = yesterdayResult.skipped + todayResult.skipped;
+          console.log(`Inserted ${gwResult.inserted}, skipped ${gwResult.skipped} for gateway ${gateway.gwid}`);
         }
       } catch (error) {
         gwResult.error = error instanceof Error ? error.message : 'Unknown error';
@@ -136,7 +148,8 @@ export async function backfillData(
   password: string,
   startDate: string,  // YYYY-MM-DD
   endDate: string,    // YYYY-MM-DD
-  timezone: string = 'America/Los_Angeles'
+  timezone: string = 'America/Los_Angeles',
+  override: boolean = false
 ): Promise<CronResult> {
   const result: CronResult = {
     success: true,
@@ -184,7 +197,7 @@ export async function backfillData(
         console.log(`Got ${readings.length} readings for gateway ${gateway.gwid}`);
 
         if (readings.length > 0) {
-          const insertResult = await insertEnergyReadings(db, gateway.gwid, readings);
+          const insertResult = await insertEnergyReadings(db, gateway.gwid, readings, override);
           gwResult.inserted = insertResult.inserted;
           gwResult.skipped = insertResult.skipped;
           console.log(`Inserted ${insertResult.inserted}, skipped ${insertResult.skipped} for gateway ${gateway.gwid}`);

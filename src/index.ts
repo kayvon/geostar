@@ -56,7 +56,8 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     if (!start || !end) {
       return errorResponse('Missing start or end parameter (YYYY-MM-DD)', 400);
     }
-    return handleBackfill(env, start, end);
+    const override = url.searchParams.get('override') === 'true';
+    return handleBackfill(env, start, end, override);
   }
 
   // Root - simple status page
@@ -169,7 +170,7 @@ async function handleManualCron(env: Env): Promise<Response> {
   }
 }
 
-async function handleBackfill(env: Env, start: string, end: string): Promise<Response> {
+async function handleBackfill(env: Env, start: string, end: string, override: boolean = false): Promise<Response> {
   const { DB, GEOSTAR_EMAIL, GEOSTAR_PASSWORD, TIMEZONE } = env;
 
   if (!GEOSTAR_EMAIL || !GEOSTAR_PASSWORD) {
@@ -177,7 +178,7 @@ async function handleBackfill(env: Env, start: string, end: string): Promise<Res
   }
 
   try {
-    const result = await backfillData(DB, GEOSTAR_EMAIL, GEOSTAR_PASSWORD, start, end, TIMEZONE || 'America/Los_Angeles');
+    const result = await backfillData(DB, GEOSTAR_EMAIL, GEOSTAR_PASSWORD, start, end, TIMEZONE || 'America/Los_Angeles', override);
     return jsonResponse(result);
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : 'Backfill error');
